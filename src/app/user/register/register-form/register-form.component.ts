@@ -21,7 +21,6 @@ export class RegisterFormComponent {
   changeToLoginMode(value: boolean) {
     this.modeChanged.emit(value);
   }  
-  
 
   @Output() errorOccurred = new EventEmitter<string>();
   emitRegisterError(errorMessage: string) {

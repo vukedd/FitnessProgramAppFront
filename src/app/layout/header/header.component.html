@@ -25,7 +25,7 @@
             <h2 class="font-bold whitespace-nowrap">Sign up</h2>
           </div>
         </ng-template>
-          <app-login-form *ngIf="isLoginMode" (modeChanged)="handleModeChange($event)"></app-login-form>
+          <app-login-form *ngIf="isLoginMode" (modeChanged)="handleModeChange($event)" (errorOccurred)="handleLoginError($event)" (successfullLogin)="handleLoginSuccess($event)"></app-login-form>
           <app-register-form *ngIf="!isLoginMode" (modeChanged)="handleModeChange($event)" (errorOccurred)="handleRegisterError($event)" (successfullRegistration)="handleRegisterSuccess($event)"></app-register-form>
         <ng-template #footer>
           <div class="inline-flex items-center justify-center gap-2">

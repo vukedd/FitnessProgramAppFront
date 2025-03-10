@@ -49,7 +49,6 @@ export class ProgramCardComponent implements OnInit {
   
   toggleLike(event: Event): void {
     event.stopPropagation(); // Prevent card click when clicking like button
-    console.log(this.isFollowed);
     this.isFollowed = !this.isFollowed;
     this.iconClass = !this.isFollowed ? 'pi pi-heart' : 'pi pi-heart-fill';
     this.followTextClass=!this.isFollowed?"Follow":"Unfollow";

@@ -17,6 +17,7 @@ import { RegisterFormComponent } from "../../user/register/register-form/registe
 import { LoginFormComponent } from "../../user/login/login-form/login-form.component";
 import { ToastModule } from 'primeng/toast';
 import { consumerPollProducersForChange } from '@angular/core/primitives/signals';
+import { UserProfile } from '../../user/login/dtos/user-profile';
 
 @Component({
   selector: 'app-header',
@@ -27,21 +28,20 @@ import { consumerPollProducersForChange } from '@angular/core/primitives/signals
   encapsulation: ViewEncapsulation.None
 })
 export class HeaderComponent implements OnInit{
+
   sidemenuVisible:boolean=false;
   isDarkMode = false;
   searchText:string='';
   items: MenuItem[] | undefined;
   visible: boolean = false;
-  isLoginMode: boolean = false;
+  isLoginMode: boolean = true;
 
   showDialog() {
       this.visible = true;
-      console.log(this.visible);
   }
 
   closeDialog() {
     this.visible = false;
-    console.log(this.visible);
   }
 
   handleModeChange(value: boolean) {
@@ -57,6 +57,25 @@ export class HeaderComponent implements OnInit{
     this.isLoginMode = true;
   }
 
+  handleLoginError(statusCode: number) {
+    switch (statusCode) {
+      case 401:
+        this.messageService.add({ severity: 'error', summary: "Error", detail: "The credentials you have entered are invalid!"});
+        break;
+      case 403:
+        this.messageService.add({ severity: 'error', summary: "Error", detail: "Before you continue, please verify your account!"});
+        break;
+      default:
+        this.messageService.add({ severity: 'error', summary: "Error", detail: "An error occurred, please try later!"});
+    }
+  }
+
+  handleLoginSuccess(statusCode: number) {
+    if (statusCode == 200) {
+      this.messageService.add({severity: 'success', summary: "Success", detail: "You have successfully logged in!"})
+    }
+  }
+
   constructor(private themeService: ThemeService, private jwtService: JwtService, private messageService: MessageService) {
     this.themeService.darkMode$.subscribe(
         isDark => this.isDarkMode = isDark
@@ -65,24 +84,37 @@ export class HeaderComponent implements OnInit{
   
   ngOnInit(): void {
     if (this.jwtService.isLoggedIn()){
-      this.items = [
+      let email:string = "starting"
+      this.jwtService.getLoggedInUser().subscribe(
         {
-          label: 'johndoe@example.com',
-          icon: '',
-          items: [
-            {
-              label: 'Profile',
-              icon: 'pi pi-user',
-              
-            },
-            {
-              label: 'Logout',
-              icon: 'pi pi-sign-out',
-              
-            },
-          ],
-        },
-      ];
+          next: (response) => {
+            this.items = [
+              {
+                label: `${response.email}`,
+                icon: '',
+                items: [
+                  {
+                    label: 'Profile',
+                    icon: 'pi pi-user',
+                    
+                  },
+                  {
+                    label: 'Logout',
+                    icon: 'pi pi-sign-out',
+                    command: () => {
+                      this.jwtService.logout()
+                      window.location.href = '';
+                    }
+                  },
+                ],
+              },
+            ];
+          },
+          error: (error) => {
+            email = "Error";
+          }
+        }
+      )
     }
   }
   toggleTheme() {
