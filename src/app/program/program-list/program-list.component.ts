@@ -8,6 +8,7 @@ import { ProgramCardComponent } from "../program-card/program-card.component";
 import { AddProgramCardComponent } from "../add-program-card/add-program-card.component";
 import { CommonModule } from '@angular/common';
 import { PaginatorModule } from 'primeng/paginator';
+import { JwtService } from '../../auth/jwt/jwt.service';
 
 interface PageEvent {
   first: number;
@@ -41,10 +42,16 @@ export class ProgramListComponent implements OnInit {
   public totalRecords: number = 0;
   public totalPages: number = 0;
 
-  constructor(private programService: ProgramService) { }
+  constructor(private programService: ProgramService, private jwtService: JwtService) { }
 
   ngOnInit() {
-    this.loadPrograms(this.page, this.rows);
+    if (this.isLoggedIn()) {
+      this.loadPrograms(this.page, this.rows);
+    }
+  }
+
+  public isLoggedIn(): boolean {
+    return this.jwtService.isLoggedIn()
   }
 
   loadPrograms(page: number, size: number) {

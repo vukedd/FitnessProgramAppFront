@@ -2,19 +2,23 @@
   <div class="content w-full flex flex-column pt-3 text-color">
     <!-- Logo and App Name -->
     <div class="header flex justify-content-center align-items-center gap-2 mb-5">
-      <img class="w-2 h-3" src="/fitness-logo.png" alt="Fitness Logo" />
       <span class="text-xl font-medium">Fitness Programs</span>
     </div>
     
     <!-- User Profile -->
-    <div class="user flex flex-column justify-content-center align-items-center gap-1 mb-4">
+    <div class="user flex flex-column justify-content-center align-items-center gap-1 mb-4" *ngIf="isLoggedIn()">
       <p-avatar size="xlarge" shape="circle" [image]="this.photo" />
       <span class="name text-lg font-medium mt-2">{{this.username || 'Loading...'}}</span>
       <span class="email text-sm text-600">{{this.email || 'Loading...'}}</span>
     </div>
     
+    <div class="user flex flex-column justify-content-center align-items-center gap-1 mb-4" *ngIf="!isLoggedIn()">
+      <p-avatar size="xlarge" shape="circle" [image]="this.photo" />
+      <span class="email text-sm text-600">Please sign in to continue!</span>
+    </div>
+
     <!-- Navigation Menu -->
-    <div class="flex flex-column options px-2">
+    <div class="flex flex-column options px-2" *ngIf="isLoggedIn()">
       <!-- Home -->
       <p-button
         styleClass="w-full justify-content-left pl-3 border-round h-3rem mb-2 text-color hover:bg-blue-50 hover:text-blue-500"

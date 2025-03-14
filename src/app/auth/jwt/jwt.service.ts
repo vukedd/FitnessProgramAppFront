@@ -46,7 +46,6 @@ export class    JwtService {
     let token: string | null = this.getToken();
 
     if (token != null) {
-      console.log(this.decodeToken(token));
       return true;
     }
     
@@ -67,15 +66,23 @@ export class    JwtService {
   }
 
   getToken(): string | null{
-    if (typeof window !== 'undefined' && window.localStorage) {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
       return sessionStorage.getItem("accessToken");
     }
 
     return null;
   }
 
+  getRefreshToken(): string | null{
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return sessionStorage.getItem("refreshToken");
+    }
+
+    return null;
+  }
+
   setTokens(token: Token) {
-    if (typeof window !== 'undefined' && window.localStorage) {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
       sessionStorage.setItem("accessToken", token.accessToken);
       sessionStorage.setItem("refreshToken", token.refreshToken);
     }
@@ -85,7 +92,6 @@ export class    JwtService {
     try {
       return jwtDecode(token);
     } catch (error) {
-      console.error('Invalid token', error);
       return null;
     }
   }

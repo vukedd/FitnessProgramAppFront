@@ -17,9 +17,6 @@ export class AppComponent {
   
   title = 'fitness-program-app';
   ngOnInit() {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      sessionStorage.setItem('key', 'value');
-      const data = sessionStorage.getItem('key');
-    }
+    if (typeof window !== 'undefined' && window.localStorage) {}
   }
 }

@@ -7,6 +7,7 @@ import { DrawerModule } from 'primeng/drawer';
 import { MenuModule } from 'primeng/menu';
 import { AvatarModule } from 'primeng/avatar';
 import { AvatarGroupModule } from 'primeng/avatargroup';
+import { JwtService } from '../../auth/jwt/jwt.service';
 
 
 @Component({
@@ -19,26 +20,34 @@ import { AvatarGroupModule } from 'primeng/avatargroup';
 export class SidebarComponent {
   username: string = 'John';
   email: string = 'Doe';
-  photo: string = 'dinja.jpg';
+  photo: string = 'placeholder-pfp.jpg';
   role: string = '';
 
-  //constructor(private userService: UserService) { }
+  constructor(private jwtService: JwtService) { }
 
   ngOnInit(): void {
-    this.loadUserData();
+    if (this.isLoggedIn()) {
+      this.loadUserData();
+    } else {
+      this.username = '';
+      this.email = '';
+      this.role = '';
+    }
+  }
+
+  isLoggedIn() {
+    return this.jwtService.isLoggedIn();
   }
 
   private loadUserData(): void {
-    // this.userService.getCurrentUser().subscribe(
-    //   (userData) => {
-    //     this.username = userData.username;
-    //     this.email = userData.email;
-    //     this.photo = userData.profilePhoto || '/assets/default-avatar.png';
-    //     this.role = userData.role;
-    //   },
-    //   (error) => {
-    //     console.error('Error loading user data:', error);
-    //   }
-    // );
+    this.jwtService.getLoggedInUser().subscribe(
+      (userData) => {
+        this.username = userData.username;
+        this.email = userData.email;
+      },
+      (error) => {
+        console.error('Error loading user data:', error);
+      }
+    );
   }
 }

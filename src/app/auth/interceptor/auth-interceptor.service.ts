@@ -38,39 +38,50 @@ export class AuthInterceptorService implements HttpInterceptor{
     }
 
     private handle401Error(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-        if (!this.isRefreshing) {
-            this.isRefreshing = true;
-            this.refreshTokenSubject.next(null);
-
-            return this.jwtService.refreshToken().pipe(
-                switchMap((tokenResponse: any) => {
-                    this.isRefreshing = false;
-                    this.jwtService.setTokens({accessToken: tokenResponse.token, refreshToken: tokenResponse.refreshTokenId, username: tokenResponse.username});
-                    console.log(tokenResponse.token + "|" + tokenResponse.refreshTokenId);
-                    this.refreshTokenSubject.next(tokenResponse.accessToken);
-                    const clonedReq = req.clone({
-                      setHeaders: { Authorization: `Bearer ${tokenResponse.token}` }
-                    });
-                    return next.handle(clonedReq);
-                  }),
-                  catchError(err => {
-                    this.isRefreshing = false;
-                    this.jwtService.logout();
-                    return throwError(err);
-                  })
-            )
-        } else {
-            return this.refreshTokenSubject.pipe(
-                filter(token => token != null),
-                take(1),
-                switchMap((newToken) => {
+      if (!this.isRefreshing) {
+          this.isRefreshing = true;
+          this.refreshTokenSubject.next(null); // Clear previous tokens while refreshing
+  
+          return this.jwtService.refreshToken().pipe(
+              switchMap((tokenResponse: any) => {
+                  this.isRefreshing = false;
+  
+                  // ✅ Store the new tokens dynamically without page refresh
+                  this.jwtService.setTokens({
+                      accessToken: tokenResponse.token,
+                      refreshToken: tokenResponse.refreshTokenId,
+                      username: tokenResponse.username
+                  });
+  
+                  this.refreshTokenSubject.next(tokenResponse.accessToken); // Notify waiting requests
+  
+                  // Retry the original request with the new token
                   const clonedReq = req.clone({
-                    setHeaders: { Authorization: `Bearer ${newToken}` }
+                      setHeaders: { Authorization: `Bearer ${tokenResponse.token}` }
+                  });
+  
+                  return next.handle(clonedReq);
+              }),
+              catchError(err => {
+                  this.isRefreshing = false;
+                  this.jwtService.logout(); // Log out the user if refresh fails
+                  return throwError(() => err);
+              })
+          );
+      } else {
+          // If already refreshing, wait for the new token before retrying
+          return this.refreshTokenSubject.pipe(
+              filter(token => token != null), // Wait for a valid token
+              take(1), // Only take the first new token
+              switchMap((newToken) => {
+                  const clonedReq = req.clone({
+                      setHeaders: { Authorization: `Bearer ${newToken}` }
                   });
                   return next.handle(clonedReq);
-                })
-              );
-        }
-    }
+              })
+          );
+      }
+  }
+  
 }
 
