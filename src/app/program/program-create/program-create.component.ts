@@ -22,7 +22,7 @@ import { StepperModule } from 'primeng/stepper';
 import { BadgeModule } from 'primeng/badge';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-
+import { Ripple } from 'primeng/ripple';
 @Component({
   selector: 'app-program-create',
   standalone: true,
@@ -71,7 +71,7 @@ export class ProgramCreateComponent implements OnInit {
   editMinRestTime: number | null = null;
   editMaxRestTime: number | null = null;
   editRestTimeMetric: string | null = null;
-  
+
   // NEW PROPERTIES FOR EDIT MODE
   isEditMode: boolean = false;
   programId: number | null = null;
@@ -89,6 +89,10 @@ export class ProgramCreateComponent implements OnInit {
   // Track selected metrics for each exercise
   selectedVolumeMetrics: Map<string, VolumeMetric> = new Map();
   selectedIntensityMetrics: Map<string, IntensityMetric> = new Map();
+
+  copiedWorkout: any = null;
+  copiedExercise: any = null;
+  copiedWeek: any = null;
 
   constructor(
     private fb: FormBuilder,
@@ -108,7 +112,7 @@ export class ProgramCreateComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading = true;
-   
+
     // Check if we're in edit mode by looking for an ID in the route parameters
     this.route.paramMap.pipe(
       switchMap(params => {
@@ -157,11 +161,11 @@ export class ProgramCreateComponent implements OnInit {
         this.exercises = result.exercises;
         this.volumeMetrics = result.volumeMetrics;
         this.intensityMetrics = result.intensityMetrics;
-  
+
         if (this.isEditMode && result.program) {
           try {
             this.loadProgramData(result.program);
-            
+
             // Handle the program image
             if (result.programImage && result.programImage.size > 0) {
               this.uploadedImage = result.programImage;
@@ -204,20 +208,20 @@ export class ProgramCreateComponent implements OnInit {
     // Set program name
     this.programForm.get('name')?.setValue(program.name);
     this.programForm.get('id')?.setValue(program.id);
-    
+
     // Set image
-    
+
     // Set image if available
     // if (program) {
     //   this.existingImageUrl = program.imageUrl;
     //   this.imagePreviewUrl = program.imageUrl;
     // }
-    
+
     // Clear existing weeks array
     while (this.weeks.length) {
       this.weeks.removeAt(0);
     }
-    
+
     // Load program structure (weeks, workouts, exercises)
     program.weeks.forEach((week, weekIndex) => {
       const weekForm = this.fb.group({
@@ -225,7 +229,7 @@ export class ProgramCreateComponent implements OnInit {
         workouts: this.fb.array([])
       });
       this.weeks.push(weekForm);
-      
+
       week.workouts.forEach(workout => {
         const workoutForm = this.fb.group({
           id: [workout.id],
@@ -235,27 +239,27 @@ export class ProgramCreateComponent implements OnInit {
           workoutExercises: this.fb.array([])
         });
         this.getWorkouts(weekIndex).push(workoutForm);
-        
+
         workout.workoutExercises.forEach(exercise => {
           const exerciseForm = this.fb.group({
             id: [exercise.id],
-            exercise: [this.findExerciseById(exercise.exercise.id?exercise.exercise.id:0), Validators.required],
-            volumeMetric: [this.findVolumeMetricById(exercise.sets.length>0? exercise.sets[0].volumeMetric.id:0), Validators.required],
-            intensityMetric: [this.findIntensityMetricById(exercise.sets.length>0? exercise.sets[0].intensityMetric.id:0), Validators.required],
+            exercise: [this.findExerciseById(exercise.exercise.id ? exercise.exercise.id : 0), Validators.required],
+            volumeMetric: [this.findVolumeMetricById(exercise.sets.length > 0 ? exercise.sets[0].volumeMetric.id : 0), Validators.required],
+            intensityMetric: [this.findIntensityMetricById(exercise.sets.length > 0 ? exercise.sets[0].intensityMetric.id : 0), Validators.required],
             sets: this.fb.array([]),
             minimumRestTime: [exercise.minimumRestTime || 0, Validators.required],
             maximumRestTime: [exercise.maximumRestTime || 60, Validators.required],
             restTimeMetric: [this.restTimeMetrics[0], Validators.required]
           });
-          
+
           this.getWorkoutExercises(weekIndex, this.getWorkouts(weekIndex).length - 1).push(exerciseForm);
-          
+
           // Update the metrics maps
           const key = `${weekIndex}-${this.getWorkouts(weekIndex).length - 1}-${this.getWorkoutExercises(weekIndex, this.getWorkouts(weekIndex).length - 1).length - 1}`;
-          
+
           this.selectedVolumeMetrics.set(key, exerciseForm.get('volumeMetric')?.value!);
           this.selectedIntensityMetrics.set(key, exerciseForm.get('intensityMetric')?.value!);
-          
+
           // Load sets
           exercise.sets.forEach(set => {
             const setForm = this.fb.group({
@@ -271,17 +275,17 @@ export class ProgramCreateComponent implements OnInit {
               volumeMetric: [exerciseForm.get('volumeMetric')?.value],
               intensityMetric: [exerciseForm.get('intensityMetric')?.value]
             });
-            
+
             this.getSets(
-              weekIndex, 
-              this.getWorkouts(weekIndex).length - 1, 
+              weekIndex,
+              this.getWorkouts(weekIndex).length - 1,
               this.getWorkoutExercises(weekIndex, this.getWorkouts(weekIndex).length - 1).length - 1
             ).push(setForm);
           });
         });
       });
     });
-    
+
     // If no weeks were loaded, add a default one
     if (this.weeks.length === 0) {
       this.addWeek();
@@ -325,7 +329,9 @@ export class ProgramCreateComponent implements OnInit {
     setTimeout(() => this.scrollToActiveTab(), 100);
   }
 
-  removeWeek(weekIndex: number): void {
+  removeWeek(weekIndex: number,event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
     this.weeks.removeAt(weekIndex);
     if (parseInt(this.activeWeekTab) === weekIndex) {
       const newIndex = Math.max(0, weekIndex - 1);
@@ -519,13 +525,13 @@ export class ProgramCreateComponent implements OnInit {
     this.loading = true;
 
     // Use the service to prepare the form data
-    const formData =this.isEditMode ? 
-    this.programService.prepareFormDataUpdate(this.programForm.value, this.uploadedImage):
-    this.programService.prepareFormData(this.programForm.value, this.uploadedImage);
+    const formData = this.isEditMode ?
+      this.programService.prepareFormDataUpdate(this.programForm.value, this.uploadedImage) :
+      this.programService.prepareFormData(this.programForm.value, this.uploadedImage);
 
 
     // Determine whether to create or update
-    const action = this.isEditMode 
+    const action = this.isEditMode
       ? this.programService.updateProgram(this.programId!, formData)
       : this.programService.createProgram(formData);
 
@@ -601,7 +607,7 @@ export class ProgramCreateComponent implements OnInit {
     if (this.imagePreviewUrl && this.imageChanged) {
       URL.revokeObjectURL(this.imagePreviewUrl);
     }
-    
+
     this.imagePreviewUrl = null;
     this.existingImageUrl = null;
     this.imageChanged = true;
@@ -711,5 +717,379 @@ export class ProgramCreateComponent implements OnInit {
   // Helper method to get submit button text based on mode
   getSubmitButtonText(): string {
     return this.isEditMode ? 'Update Program' : 'Create Program';
+  }
+
+  // Add these methods to your ProgramCreateComponent class
+
+  // For moving workouts up/down within a week
+  moveWorkoutUp(weekIndex: number, workoutIndex: number): void {
+    if (workoutIndex > 0) {
+      const workouts = this.getWorkouts(weekIndex);
+      const temp = workouts.at(workoutIndex);
+      workouts.removeAt(workoutIndex);
+      workouts.insert(workoutIndex - 1, temp);
+    }
+  }
+
+  moveWorkoutDown(weekIndex: number, workoutIndex: number): void {
+    const workouts = this.getWorkouts(weekIndex);
+    if (workoutIndex < workouts.length - 1) {
+      const temp = workouts.at(workoutIndex);
+      workouts.removeAt(workoutIndex);
+      workouts.insert(workoutIndex + 1, temp);
+    }
+  }
+
+  // For moving exercises up/down within a workout
+  moveExerciseUp(weekIndex: number, workoutIndex: number, exerciseIndex: number): void {
+    if (exerciseIndex > 0) {
+      const exercises = this.getWorkoutExercises(weekIndex, workoutIndex);
+      const temp = exercises.at(exerciseIndex);
+      exercises.removeAt(exerciseIndex);
+      exercises.insert(exerciseIndex - 1, temp);
+
+      // Update the keys in our maps for the moved exercises
+      this.updateExerciseMetricKeys(weekIndex, workoutIndex, exerciseIndex - 1, exerciseIndex);
+    }
+  }
+
+  moveExerciseDown(weekIndex: number, workoutIndex: number, exerciseIndex: number): void {
+    const exercises = this.getWorkoutExercises(weekIndex, workoutIndex);
+    if (exerciseIndex < exercises.length - 1) {
+      const temp = exercises.at(exerciseIndex);
+      exercises.removeAt(exerciseIndex);
+      exercises.insert(exerciseIndex + 1, temp);
+
+      // Update the keys in our maps for the moved exercises
+      this.updateExerciseMetricKeys(weekIndex, workoutIndex, exerciseIndex, exerciseIndex + 1);
+    }
+  }
+
+  // Helper method to update the metric map keys when exercises change positions
+  private updateExerciseMetricKeys(weekIndex: number, workoutIndex: number, fromIndex: number, toIndex: number): void {
+    // Create temporary storage for the metric values
+    const fromKey = `${weekIndex}-${workoutIndex}-${fromIndex}`;
+    const toKey = `${weekIndex}-${workoutIndex}-${toIndex}`;
+
+    // Store the values
+    const volumeMetricFrom = this.selectedVolumeMetrics.get(fromKey);
+    const volumeMetricTo = this.selectedVolumeMetrics.get(toKey);
+    const intensityMetricFrom = this.selectedIntensityMetrics.get(fromKey);
+    const intensityMetricTo = this.selectedIntensityMetrics.get(toKey);
+    const restTimeFrom = this.selectedRestTime.get(fromKey);
+    const restTimeTo = this.selectedRestTime.get(toKey);
+
+    // Swap the values in the maps
+    if (volumeMetricFrom) this.selectedVolumeMetrics.set(toKey, volumeMetricFrom);
+    if (volumeMetricTo) this.selectedVolumeMetrics.set(fromKey, volumeMetricTo);
+
+    if (intensityMetricFrom) this.selectedIntensityMetrics.set(toKey, intensityMetricFrom);
+    if (intensityMetricTo) this.selectedIntensityMetrics.set(fromKey, intensityMetricTo);
+
+    if (restTimeFrom) this.selectedRestTime.set(toKey, restTimeFrom);
+    if (restTimeTo) this.selectedRestTime.set(fromKey, restTimeTo);
+  }
+
+  copyWeek(weekIndex: number,event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    // Deep clone the week form group
+    const weekToCopy = this.weeks.at(weekIndex);
+    const weekValue = weekToCopy.getRawValue();
+    // Remove any IDs for a proper copy
+    this.removeIdsFromWeekData(weekValue);
+    this.copiedWeek = weekValue;
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Week Copied',
+      detail: `Week ${weekIndex + 1} has been copied to clipboard`
+    });
+  }
+
+  pasteWeek(): void {
+    if (!this.copiedWeek) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Nothing to Paste',
+        detail: 'No week has been copied yet'
+      });
+      return;
+    }
+
+    // Create a new week with the copied data
+    const weekForm = this.fb.group({
+      workouts: this.fb.array([])
+    });
+    this.weeks.push(weekForm);
+
+    // Populate the new week with workouts
+    const newWeekIndex = this.weeks.length - 1;
+    this.copiedWeek.workouts.forEach((workout: any) => {
+      const workoutForm = this.fb.group({
+        title: [workout.title || '', Validators.required],
+        description: [workout.description || ''],
+        number: [workout.number || ''],
+        workoutExercises: this.fb.array([])
+      });
+      this.getWorkouts(newWeekIndex).push(workoutForm);
+
+      const workoutIndex = this.getWorkouts(newWeekIndex).length - 1;
+
+      // Add exercises to the workout
+      workout.workoutExercises.forEach((exercise: any) => {
+        const exerciseForm = this.fb.group({
+          exercise: [this.findExerciseById(exercise.exercise?.id) || null, Validators.required],
+          volumeMetric: [this.findVolumeMetricById(exercise.volumeMetric?.id) || null, Validators.required],
+          intensityMetric: [this.findIntensityMetricById(exercise.intensityMetric?.id) || null, Validators.required],
+          sets: this.fb.array([]),
+          minimumRestTime: [exercise.minimumRestTime || 0, Validators.required],
+          maximumRestTime: [exercise.maximumRestTime || 60, Validators.required],
+          restTimeMetric: [exercise.restTimeMetric || this.restTimeMetrics[0], Validators.required]
+        });
+
+        this.getWorkoutExercises(newWeekIndex, workoutIndex).push(exerciseForm);
+        const exerciseIndex = this.getWorkoutExercises(newWeekIndex, workoutIndex).length - 1;
+
+        // Update metric maps
+        const key = `${newWeekIndex}-${workoutIndex}-${exerciseIndex}`;
+        const volumeMetricValue = exerciseForm.get('volumeMetric')?.value;
+        if (volumeMetricValue) {
+          this.selectedVolumeMetrics.set(key, volumeMetricValue);
+        }
+        const intensityMetricValue = exerciseForm.get('intensityMetric')?.value;
+        if (intensityMetricValue) {
+          this.selectedIntensityMetrics.set(key, intensityMetricValue);
+        }
+        this.selectedRestTime.set(key, exerciseForm.get('restTimeMetric')?.value);
+
+        // Add sets to the exercise
+        exercise.sets.forEach((set: any) => {
+          const setForm = this.fb.group({
+            volume: this.fb.group({
+              minimumVolume: [set.volume.minimumVolume],
+              maximumVolume: [set.volume.maximumVolume, Validators.required]
+            }),
+            intensity: this.fb.group({
+              minimumIntensity: [set.intensity.minimumIntensity],
+              maximumIntensity: [set.intensity.maximumIntensity, Validators.required]
+            }),
+            volumeMetric: [exerciseForm.get('volumeMetric')?.value],
+            intensityMetric: [exerciseForm.get('intensityMetric')?.value]
+          });
+
+          this.getSets(newWeekIndex, workoutIndex, exerciseIndex).push(setForm);
+        });
+      });
+    });
+
+    // Set the active tab to the new week
+    this.activeWeekTab = (this.weeks.length - 1).toString();
+    setTimeout(() => this.scrollToActiveTab(), 100);
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Week Pasted',
+      detail: 'Week has been pasted successfully'
+    });
+  }
+
+  // Methods to copy/paste workouts
+  copyWorkout(weekIndex: number, workoutIndex: number): void {
+    // Deep clone the workout form group
+    const workoutToCopy = this.getWorkouts(weekIndex).at(workoutIndex);
+    const workoutValue = workoutToCopy.getRawValue();
+    // Remove any IDs for a proper copy
+    this.removeIdsFromWorkoutData(workoutValue);
+    this.copiedWorkout = workoutValue;
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Workout Copied',
+      detail: `Workout "${workoutValue.title}" has been copied to clipboard`
+    });
+  }
+
+  pasteWorkout(weekIndex: number): void {
+    if (!this.copiedWorkout) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Nothing to Paste',
+        detail: 'No workout has been copied yet'
+      });
+      return;
+    }
+
+    // Create a new workout with the copied data
+    const workoutForm = this.fb.group({
+      title: [this.copiedWorkout.title || '', Validators.required],
+      description: [this.copiedWorkout.description || ''],
+      number: [this.copiedWorkout.number || ''],
+      workoutExercises: this.fb.array([])
+    });
+    this.getWorkouts(weekIndex).push(workoutForm);
+
+    const workoutIndex = this.getWorkouts(weekIndex).length - 1;
+
+    // Add exercises to the workout
+    this.copiedWorkout.workoutExercises.forEach((exercise: any) => {
+      const exerciseForm = this.fb.group({
+        exercise: [this.findExerciseById(exercise.exercise?.id) || null, Validators.required],
+        volumeMetric: [this.findVolumeMetricById(exercise.volumeMetric?.id) || null, Validators.required],
+        intensityMetric: [this.findIntensityMetricById(exercise.intensityMetric?.id) || null, Validators.required],
+        sets: this.fb.array([]),
+        minimumRestTime: [exercise.minimumRestTime || 0, Validators.required],
+        maximumRestTime: [exercise.maximumRestTime || 60, Validators.required],
+        restTimeMetric: [exercise.restTimeMetric || this.restTimeMetrics[0], Validators.required]
+      });
+
+      this.getWorkoutExercises(weekIndex, workoutIndex).push(exerciseForm);
+      const exerciseIndex = this.getWorkoutExercises(weekIndex, workoutIndex).length - 1;
+
+      // Update metric maps
+      const key = `${weekIndex}-${workoutIndex}-${exerciseIndex}`;
+      const volumeMetricValue = exerciseForm.get('volumeMetric')?.value;
+      if (volumeMetricValue) {
+        this.selectedVolumeMetrics.set(key, volumeMetricValue);
+      }
+      const intensityMetricValue = exerciseForm.get('intensityMetric')?.value;
+      if (intensityMetricValue) {
+        this.selectedIntensityMetrics.set(key, intensityMetricValue);
+      }
+      this.selectedRestTime.set(key, exerciseForm.get('restTimeMetric')?.value);
+
+      // Add sets to the exercise
+      exercise.sets.forEach((set: any) => {
+        const setForm = this.fb.group({
+          volume: this.fb.group({
+            minimumVolume: [set.volume.minimumVolume],
+            maximumVolume: [set.volume.maximumVolume, Validators.required]
+          }),
+          intensity: this.fb.group({
+            minimumIntensity: [set.intensity.minimumIntensity],
+            maximumIntensity: [set.intensity.maximumIntensity, Validators.required]
+          }),
+          volumeMetric: [exerciseForm.get('volumeMetric')?.value],
+          intensityMetric: [exerciseForm.get('intensityMetric')?.value]
+        });
+
+        this.getSets(weekIndex, workoutIndex, exerciseIndex).push(setForm);
+      });
+    });
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Workout Pasted',
+      detail: 'Workout has been pasted successfully'
+    });
+  }
+
+  // Methods to copy/paste exercises
+  copyExercise(weekIndex: number, workoutIndex: number, exerciseIndex: number): void {
+    // Deep clone the exercise form group
+    const exerciseToCopy = this.getWorkoutExercises(weekIndex, workoutIndex).at(exerciseIndex);
+    const exerciseValue = exerciseToCopy.getRawValue();
+    // Remove any IDs for a proper copy
+    this.removeIdsFromExerciseData(exerciseValue);
+    this.copiedExercise = exerciseValue;
+
+    const exerciseName = exerciseValue.exercise?.title || `Exercise ${exerciseIndex + 1}`;
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Exercise Copied',
+      detail: `${exerciseName} has been copied to clipboard`
+    });
+  }
+
+  pasteExercise(weekIndex: number, workoutIndex: number): void {
+    if (!this.copiedExercise) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Nothing to Paste',
+        detail: 'No exercise has been copied yet'
+      });
+      return;
+    }
+
+    // Create a new exercise with the copied data
+    const exerciseForm = this.fb.group({
+      exercise: [this.findExerciseById(this.copiedExercise.exercise?.id) || null, Validators.required],
+      volumeMetric: [this.findVolumeMetricById(this.copiedExercise.volumeMetric?.id) || null, Validators.required],
+      intensityMetric: [this.findIntensityMetricById(this.copiedExercise.intensityMetric?.id) || null, Validators.required],
+      sets: this.fb.array([]),
+      minimumRestTime: [this.copiedExercise.minimumRestTime || 0, Validators.required],
+      maximumRestTime: [this.copiedExercise.maximumRestTime || 60, Validators.required],
+      restTimeMetric: [this.copiedExercise.restTimeMetric || this.restTimeMetrics[0], Validators.required]
+    });
+
+    this.getWorkoutExercises(weekIndex, workoutIndex).push(exerciseForm);
+    const exerciseIndex = this.getWorkoutExercises(weekIndex, workoutIndex).length - 1;
+
+    // Update metric maps
+    const key = `${weekIndex}-${workoutIndex}-${exerciseIndex}`;
+    const volumeMetricValue = exerciseForm.get('volumeMetric')?.value;
+    if (volumeMetricValue) {
+      this.selectedVolumeMetrics.set(key, volumeMetricValue);
+    }
+    const intensityMetricValue = exerciseForm.get('intensityMetric')?.value;
+    if (intensityMetricValue) {
+      this.selectedIntensityMetrics.set(key, intensityMetricValue);
+    }
+    this.selectedRestTime.set(key, exerciseForm.get('restTimeMetric')?.value);
+
+    // Add sets to the exercise
+    this.copiedExercise.sets.forEach((set: any) => {
+      const setForm = this.fb.group({
+        volume: this.fb.group({
+          minimumVolume: [set.volume.minimumVolume],
+          maximumVolume: [set.volume.maximumVolume, Validators.required]
+        }),
+        intensity: this.fb.group({
+          minimumIntensity: [set.intensity.minimumIntensity],
+          maximumIntensity: [set.intensity.maximumIntensity, Validators.required]
+        }),
+        volumeMetric: [exerciseForm.get('volumeMetric')?.value],
+        intensityMetric: [exerciseForm.get('intensityMetric')?.value]
+      });
+
+      this.getSets(weekIndex, workoutIndex, exerciseIndex).push(setForm);
+    });
+
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Exercise Pasted',
+      detail: 'Exercise has been pasted successfully'
+    });
+  }
+
+  // Helper methods to remove IDs from objects (to ensure they're treated as new)
+  private removeIdsFromWeekData(weekData: any): void {
+    delete weekData.id;
+
+    if (weekData.workouts) {
+      weekData.workouts.forEach((workout: any) => {
+        this.removeIdsFromWorkoutData(workout);
+      });
+    }
+  }
+
+  private removeIdsFromWorkoutData(workoutData: any): void {
+    delete workoutData.id;
+
+    if (workoutData.workoutExercises) {
+      workoutData.workoutExercises.forEach((exercise: any) => {
+        this.removeIdsFromExerciseData(exercise);
+      });
+    }
+  }
+
+  private removeIdsFromExerciseData(exerciseData: any): void {
+    delete exerciseData.id;
+
+    if (exerciseData.sets) {
+      exerciseData.sets.forEach((set: any) => {
+        delete set.id;
+      });
+    }
   }
 }

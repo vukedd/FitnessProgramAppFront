@@ -11,6 +11,9 @@ import { AuthInterceptorService } from './auth/interceptor/auth-interceptor.serv
 export const appConfig: ApplicationConfig = {
   providers: [provideZoneChangeDetection({ eventCoalescing: true }), provideRouter(routes), provideClientHydration(withEventReplay()),provideAnimationsAsync(),provideHttpClient(withFetch()),
     providePrimeNG({
+        ripple: false
+    }),
+    providePrimeNG({
         theme: {
             preset: CustomMaterialTheme,
             options: {
